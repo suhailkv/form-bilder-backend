@@ -11,7 +11,7 @@ router.use(authenticate);
 router.post('/:formId/submissions', validate(validation.submissionSchema), submissionController.submitForm);
 
 // List submissions (owner/admin)
-router.get('/:formId/submissions', requireAuth, submissionController.listSubmissions);
+router.get('/:formId/submissions', submissionController.listSubmissions);
 
 // Export submissions
 router.get('/:formId/submissions/export', requireAuth, submissionController.exportSubmissions);
