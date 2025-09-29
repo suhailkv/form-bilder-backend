@@ -8,13 +8,13 @@ const { authenticate, requireAuth } = require('../middlewares/auth');
 // router.use(authenticate);
 
 // list forms (must be authenticated)
-router.get('/', requireAuth, formController.listForms);
+router.get('/', formController.listForms);
 
 // create form
 router.post('/', validate(validation.formCreateSchema), formController.createForm);
 
 // get single form (any authenticated user can view form if it's theirs or admin)
-router.get('/:formId', requireAuth, formController.getForm);
+router.get('/:formId', formController.getForm);
 
 // update / delete
 router.put('/:formId', requireAuth, validate(validation.formCreateSchema), formController.updateForm);
