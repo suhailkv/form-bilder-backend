@@ -14,6 +14,6 @@ router.post('/:formId/submissions', validate(validation.submissionSchema), submi
 router.get('/:formId/submissions', submissionController.listSubmissions);
 
 // Export submissions
-router.get('/:formId/submissions/export', requireAuth, submissionController.exportSubmissions);
+router.get('/:formId/submissions/export', submissionController.exportSubmissions);
 
 module.exports = router;
