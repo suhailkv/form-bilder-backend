@@ -13,10 +13,12 @@ const submissionRoutes = require('./routes/submissionRoutes');
 const { swaggerUi, spec } = require('./swagger');
 
 const app = express();
+const cookieParser = require('cookie-parser')
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 // app.use(bodyParser.json({ limit: '10mb' }));
 // app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
@@ -43,7 +45,7 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 const start = async () => {
   try {
     await sequelize.authenticate();
-    await sequelize.sync(); // in prod, use migrations; sync is acceptable for demo
+    // await sequelize.sync(); // in prod, use migrations; sync is acceptable for demo
     app.listen(config.app.port, () => {
       logger.info(`Server listening on port ${config.app.port}`);
     });

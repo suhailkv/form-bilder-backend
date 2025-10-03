@@ -18,9 +18,19 @@ async function tokenAuth(req, res, next) {
   if (accessToken) {
     try {
       const payload = jwt.verify(accessToken, config.jwtSecret);
-      const user = await User.findByPk(payload.userId);
+      const user = await User.findByPk(payload.userId,
+        {
+            attributes : [
+                ["userID","userId"],
+                "email",
+                "name"
+            ],
+            raw : true
+        },
+       
+    );
       if (!user) return res.status(401).json({ message: "Unauthorized" });
-
+        const userData = 
       req.user = user;
       return next();
     } catch (err) {

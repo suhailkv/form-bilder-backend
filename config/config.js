@@ -4,7 +4,9 @@ module.exports = {
   app: {
     port: process.env.PORT || 3001,
     jwtSecret: process.env.JWT_SECRET || 'very-secure-secret',
-    tokenExpiry: '7d'
+    tokenExpiry: '7d',
+    linkTokenSecret : process.env.LINK_TOKEN_SECRET,
+    refreshTokenSecret : process.env.REFRESH_TOKEN_SECRET 
   },
   db: {
     host: process.env.DB_HOST || '127.0.0.1',
@@ -12,7 +14,7 @@ module.exports = {
     password: process.env.DB_PASS || '',
     database: process.env.DB_NAME || 'form_builder_db',
     dialect: 'mysql',
-    logging: false
+    logging: true
   },
-  uploadsDir: process.env.UPLOADS_DIR || 'uploads'
+  uploadsDir: process.env.UPLOADS_DIR || 'uploads',
 };

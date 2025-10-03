@@ -22,7 +22,8 @@ async function createForm(payload, userId) {
         await Field.create({
           formId: form.id,
           fieldId: f.id,
-          definition: f
+          definition: f,
+          createdBy: userId,
         }, { transaction: t });
       }
     }
