@@ -1,37 +1,57 @@
-require('dotenv').config();
 const express = require('express');
-const app = express();
+const cors = require('cors');
+// const bodyParser = require('body-parser');
+const rateLimit = require('express-rate-limit');
 const { sequelize } = require('./models');
-const routes = require('./routes');
-const errorHandler = require('./middlewares/errorHandler');
+const config = require('./config/config');
+const logger = require('./utils/logger');
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+const authRoutes = require('./routes/authRoutes');
+const formRoutes = require('./routes/formRoutes');
+const submissionRoutes = require('./routes/submissionRoutes');
 
-// Attach routes
-app.use('/api', routes);
+const { swaggerUi, spec } = require('./swagger');
 
-// Health check
-app.get('/health', (req, res) => res.json({ ok: true, env: process.env.NODE_ENV || 'development' }));
+const app = express();
 
-// Error middleware (centralized)
-app.use(errorHandler);
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+// app.use(bodyParser.json({ limit: '10mb' }));
+// app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads'));
 
-const PORT = process.env.PORT || 3000;
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300
+});
+app.use(limiter);
 
-async function start() {
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/forms', formRoutes);
+app.use('/api/submissions', submissionRoutes);
+
+// Swagger
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
+
+// Health
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Start server after DB connect
+const start = async () => {
   try {
     await sequelize.authenticate();
-    console.log('DB connection OK');
-    // sync models (no migrations per requirements)
-    await sequelize.sync({ alter: false });
-    app.listen(PORT, () => {
-      console.log(`Server started on port ${PORT}`);
+    await sequelize.sync(); // in prod, use migrations; sync is acceptable for demo
+    app.listen(config.app.port, () => {
+      logger.info(`Server listening on port ${config.app.port}`);
     });
   } catch (err) {
-    console.error('Failed to start app', err);
+    logger.error('Failed to start server: ' + err.message);
     process.exit(1);
   }
-}
-
+};
 start();
+
+module.exports = app;

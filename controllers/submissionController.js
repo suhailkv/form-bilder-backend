@@ -1,99 +1,78 @@
-const { Submission, Field, Form } = require('../models');
-const validation = require('../services/validationService');
-const formService = require('../services/formService');
+const { Submission, Form } = require('../models');
+const multer = require('multer');
+const configGlobal = require('../config/config');
+const path = require('path');
+const fs = require('fs');
+const { Op } = require('sequelize');
 
-/**
- * Submit data to a form — public or authenticated
- */
-async function submitForm(req, res, next) {
-  try {
-    const formId = parseInt(req.params.formId, 10);
-    const form = await Form.findByPk(formId, { include: [{ model: Field, as: 'fields' }] });
-    if (!form) return res.status(404).json({ error: 'Form not found' });
+// Setup uploader
+const uploadsDir = configGlobal.uploadsDir;
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-    // Validate presence of required fields at controller level
-    const data = req.body.data || {};
-    const missing = [];
-    for (const field of form.fields) {
-      if (field.required && (data[field.key] === undefined || data[field.key] === null || data[field.key] === '')) {
-        missing.push(field.key);
+// Multer storage to store files with timestamp
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const name = `${Date.now()}_${Math.random().toString(36).slice(2,8)}_${file.originalname}`;
+    cb(null, name);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit per file
+
+// Handler factory to accept dynamic set of files
+exports.submitForm = [
+  // upload.any() will accept all files - in production you can restrict by fieldnames
+  upload.any(),
+  async (req, res) => {
+    try {
+      const formId = req.params.id;
+      const form = await Form.findByPk(formId);
+      if (!form) return res.status(404).json({ message: 'Form not found' });
+
+      // validate body data - expecting JSON in req.body.data (or raw fields)
+      // Many clients will send fields as JSON in body; attempt to parse
+      let data = req.body.data;
+      if (!data) {
+        // If not provided as a json string, use req.body but exclude any multer fields
+        data = { ...req.body };
+      } else {
+        try { data = JSON.parse(data); } catch (err) {}
       }
+
+      // Build files map
+      const filesMap = {};
+      if (Array.isArray(req.files)) {
+        for (const f of req.files) {
+          // fieldname indicates which field in form JSON
+          filesMap[f.fieldname] = f.filename;
+        }
+      }
+
+      // Save submission
+      const submission = await Submission.create({
+        formId: form.id,
+        userId: req.user ? req.user.id : null,
+        data,
+        files: filesMap,
+        ip: req.ip
+      });
+
+      return res.json({ success: true, submissionId: submission.id, thankYouMessage: form.thankYouMessage || 'Thanks!' });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: 'Server error' });
     }
-    if (missing.length) return res.status(400).json({ error: 'Missing required fields', missing });
-
-    // Basic type validation
-    // (Extend this later for stricter type checks)
-    const submission = await Submission.create({
-      form_id: formId,
-      submitted_by: req.user ? req.user.id : null,
-      data,
-      ip_address: req.ip,
-      user_agent: req.get('user-agent') || null
-    });
-
-    res.status(201).json({ data: submission });
-  } catch (err) {
-    next(err);
   }
-}
+];
 
-/**
- * List submissions (with pagination, filtering, search)
- */
-async function listSubmissions(req, res, next) {
+exports.getMySubmissions = async (req, res) => {
   try {
-    const formId = parseInt(req.params.formId, 10);
-    const form = await Form.findByPk(formId);
-    if (!form) return res.status(404).json({ error: 'Form not found' });
-
-    // Only form owner or admin can list
-    if (form.created_by !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-
-    const page = parseInt(req.query.page || '1', 10);
-    const limit = Math.min(200, parseInt(req.query.limit || '20', 10));
-    const search = req.query.q || null;
-    const from = req.query.from || null;
-    const to = req.query.to || null;
-
-    const result = await formService.listSubmissions(formId, { page, limit, search, fromDate: from, toDate: to });
-
-    res.json({ data: result });
+    const userId = req.user.id;
+    const subs = await Submission.findAll({ where: { userId }, order: [['createdAt','DESC']], limit: 200 });
+    return res.json({ submissions: subs });
   } catch (err) {
-    next(err);
+    return res.status(500).json({ message: 'Server error' });
   }
-}
-
-/**
- * Export submissions as JSON (simple) — paginated
- */
-async function exportSubmissions(req, res, next) {
-  try {
-    // Reuse listSubmissions logic but return file download
-    const formId = parseInt(req.params.formId, 10);
-    const form = await Form.findByPk(formId);
-    if (!form) return res.status(404).json({ error: 'Form not found' });
-
-    if (form.created_by !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-
-    const page = parseInt(req.query.page || '1', 10);
-    const limit = Math.min(1000, parseInt(req.query.limit || '100', 10));
-    const search = req.query.q || null;
-    const from = req.query.from || null;
-    const to = req.query.to || null;
-
-    const result = await formService.listSubmissions(formId, { page, limit, search, fromDate: from, toDate: to });
-
-    const filename = `submissions_form_${formId}_page_${page}.json`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify({ meta: { total: result.count, page, limit }, submissions: result.rows }, null, 2));
-  } catch (err) {
-    next(err);
-  }
-}
-
-module.exports = {
-  submitForm,
-  listSubmissions,
-  exportSubmissions
 };

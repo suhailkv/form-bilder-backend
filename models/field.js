@@ -1,18 +1,14 @@
-module.exports = (sequelize, DataTypes) => {
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
   const Field = sequelize.define('Field', {
     id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
-    form_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-    label: { type: DataTypes.STRING(255), allowNull: false },
-    key: { type: DataTypes.STRING(255), allowNull: false }, // unique within form, used as JSON key
-    type: { type: DataTypes.ENUM('text', 'textarea', 'number', 'checkbox', 'radio', 'select', 'date', 'email'), allowNull: false },
-    required: { type: DataTypes.BOOLEAN, defaultValue: false },
-    options: { type: DataTypes.JSON, allowNull: true }, // for select/radio/checkbox: [{value,label}]
-    order: { type: DataTypes.INTEGER, defaultValue: 0 }
+    formId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+    fieldId: { type: DataTypes.STRING(255), allowNull: false }, // id used in JSON schema (e.g., field_123)
+    definition: { type: DataTypes.JSON, allowNull: false }
   }, {
     tableName: 'fields',
-    indexes: [
-      { unique: false, fields: ['form_id', 'key'] }
-    ]
+    timestamps: true
   });
 
   return Field;

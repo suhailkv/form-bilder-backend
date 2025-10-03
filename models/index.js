@@ -1,27 +1,28 @@
-const Sequelize = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../db');
+const UserModel = require('./user');
+const FormModel = require('./form');
+const FieldModel = require('./field');
+const SubmissionModel = require('./submission');
+const { DataTypes } = require('sequelize');
 
-// const User = require('./user')(sequelize, Sequelize.DataTypes);
-const Form = require('./form')(sequelize, Sequelize.DataTypes);
-const Field = require('./field')(sequelize, Sequelize.DataTypes);
-const Submission = require('./submission')(sequelize, Sequelize.DataTypes);
+const User = UserModel(sequelize,DataTypes);
+const Form = FormModel(sequelize,DataTypes);
+const Field = FieldModel(sequelize,DataTypes);
+const Submission = SubmissionModel(sequelize,DataTypes);
 
 // Associations
-// User.hasMany(Form, { foreignKey: 'created_by', as: 'forms' });
-// Form.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
+Form.hasMany(Field, { foreignKey: 'formId', as: 'fields' });
+Field.belongsTo(Form, { foreignKey: 'formId' });
 
-Form.hasMany(Field, { foreignKey: 'form_id', as: 'fields', onDelete: 'CASCADE' });
-Field.belongsTo(Form, { foreignKey: 'form_id', as: 'form' });
+Form.hasMany(Submission, { foreignKey: 'formId', as: 'submissions' });
+Submission.belongsTo(Form, { foreignKey: 'formId' });
 
-Form.hasMany(Submission, { foreignKey: 'form_id', as: 'submissions', onDelete: 'CASCADE' });
-Submission.belongsTo(Form, { foreignKey: 'form_id', as: 'form' });
-
-// User.hasMany(Submission, { foreignKey: 'submitted_by', as: 'submissions' });
-// Submission.belongsTo(User, { foreignKey: 'submitted_by', as: 'submitter' });
+User.hasMany(Submission, { foreignKey: 'userId', as: 'submissions' });
+Submission.belongsTo(User, { foreignKey: 'userId' });
 
 module.exports = {
   sequelize,
-  Sequelize,
+  User,
   Form,
   Field,
   Submission

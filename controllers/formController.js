@@ -1,102 +1,96 @@
 const { Form, Field } = require('../models');
 const formService = require('../services/formService');
-const validation = require('../services/validationService');
+const { validationResult } = require('express-validator');
 
-/**
- * Create form (user or admin)
- */
-async function createForm(req, res, next) {
+exports.createForm = async (req, res) => {
   try {
-    const payload = req.body; // validated
-    payload.created_by = req.user?.id || 0;
-    const form = await formService.createForm(payload);
-    res.status(201).json({ data: form });
+    // Admins only check
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const payload = req.body;
+    const form = await formService.createForm(payload, req.user.id);
+    return res.status(201).json({ form });
   } catch (err) {
-    next(err);
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
   }
-}
+};
 
-/**
- * Update form (only creator or admin)
- */
-async function updateForm(req, res, next) {
+exports.updateForm = async (req, res) => {
   try {
-    const formId = parseInt(req.params.formId, 10);
-    const form = await Form.findByPk(formId);
-    if (!form) return res.status(404).json({ error: 'Form not found' });
-    if (form.created_by !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    await form.update(req.body);
-    res.json({ data: form });
-  } catch (err) {
-    next(err);
-  }
-}
-
-/**
- * Delete form (only creator or admin)
- */
-async function deleteForm(req, res, next) {
-  try {
-    const id = parseInt(req.params.formId, 10);
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    const id = req.params.id;
     const form = await Form.findByPk(id);
-    if (!form) return res.status(404).json({ error: 'Form not found' });
-    if (form.created_by !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden' });
+    if (!form) return res.status(404).json({ message: 'Form not found' });
+
+    const payload = req.body;
+    form.title = payload.title || form.title;
+    form.description = payload.description || form.description;
+    form.json = payload;
+    form.thankYouMessage = payload.thankYouMessage || form.thankYouMessage;
+    form.bannerImage = payload.bannerImage || form.bannerImage;
+    await form.save();
+
+    // Replace fields table entries
+    await Field.destroy({ where: { formId: form.id }});
+    if (Array.isArray(payload.fields)) {
+      for (const f of payload.fields) {
+        await Field.create({ formId: form.id, fieldId: f.id, definition: f });
+      }
     }
+
+    return res.json({ form });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.deleteForm = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    const id = req.params.id;
+    const form = await Form.findByPk(id);
+    if (!form) return res.status(404).json({ message: 'Form not found' });
+    await Field.destroy({ where: { formId: id }});
     await form.destroy();
-    res.json({ data: { success: true } });
+    return res.json({ message: 'Deleted' });
   } catch (err) {
-    next(err);
+    return res.status(500).json({ message: 'Server error' });
   }
-}
+};
 
-/**
- * Get single form with fields
- */
-async function getForm(req, res, next) {
+exports.getForm = async (req, res) => {
   try {
-    const id = parseInt(req.params.formId, 10);
-    const form = await formService.getFormWithFields(id);
-    if (!form) return res.status(404).json({ error: 'Form not found' });
-    res.json({ data: form });
+    const id = req.params.id;
+    const form = await Form.findByPk(id);
+    if (!form) return res.status(404).json({ message: 'Form not found' });
+    // Serve JSON schema directly:
+    return res.json({ form: form.json });
   } catch (err) {
-    next(err);
+    return res.status(500).json({ message: 'Server error' });
   }
-}
+};
 
-/**
- * List forms with pagination and basic search
- */
-async function listForms(req, res, next) {
+exports.listForms = async (req, res) => {
   try {
-    const { Op } = require('sequelize');
-    const page = parseInt(req.query.page || '1', 10);
-    const limit = Math.min(100, parseInt(req.query.limit || '20', 10));
-    const offset = (page - 1) * limit;
-    const where = {};
-    if (req.query.q) {
-      where.title = { [Op.like]: `%${req.query.q}%` };
-    }
-    // If not admin, restrict to user-created forms
-    if (req.user.role !== 'admin') where.created_by = req.user.id;
-    const { count, rows } = await Form.findAndCountAll({
-      where,
-      limit,
-      offset,
-      order: [['created_at', 'DESC']]
-    });
-    res.json({ data: { forms: rows, total: count, page, limit } });
+    const forms = await Form.findAll({ attributes: ['id','title','description','thankYouMessage','bannerImage','createdAt'] });
+    return res.json({ forms });
   } catch (err) {
-    next(err);
+    return res.status(500).json({ message: 'Server error' });
   }
-}
+};
 
-module.exports = {
-  createForm,
-  updateForm,
-  deleteForm,
-  getForm,
-  listForms
+exports.getSubmissions = async (req, res) => {
+  try {
+    const formId = req.params.id;
+    const rows = await formService.fetchSubmissionsRaw(formId, 100, 0);
+    return res.json({ submissions: rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
 };

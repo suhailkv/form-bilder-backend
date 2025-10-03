@@ -1,61 +1,63 @@
-const { Form, Field, Submission } = require('../models');
+const { Form, Field, sequelize } = require('../models');
+const { QueryTypes } = require('sequelize');
 
 /**
- * Create a new form with optional fields in one call.
+ * Create a form: store JSON and store fields rows for easy lookup.
  */
-async function createForm({ title, description, settings, created_by, fields = [] }) {
-  const form = await Form.create({ title, description, settings, created_by });
-  if (fields && fields.length) {
-    const fieldsToCreate = fields.map((f, idx) => ({ order: idx, ...f, form_id: form.id }));
-    await Field.bulkCreate(fieldsToCreate);
+async function createForm(payload, userId) {
+  const t = await sequelize.transaction();
+  try {
+    const form = await Form.create({
+      title: payload.title || 'Untitled',
+      description: payload.description || '',
+      json: payload,
+      thankYouMessage: payload.thankYouMessage || '',
+      bannerImage: payload.bannerImage || '',
+      createdBy: userId
+    }, { transaction: t });
+
+    // Insert fields rows
+    if (Array.isArray(payload.fields)) {
+      for (const f of payload.fields) {
+        await Field.create({
+          formId: form.id,
+          fieldId: f.id,
+          definition: f
+        }, { transaction: t });
+      }
+    }
+
+    await t.commit();
+    return form;
+  } catch (err) {
+    await t.rollback();
+    throw err;
   }
-  return Form.findByPk(form.id, { include: [{ model: Field, as: 'fields', order: [['order', 'ASC']] }] });
 }
 
-async function updateForm(id, updates) {
-  const form = await Form.findByPk(id);
-  if (!form) return null;
-  await form.update(updates);
-  return form;
-}
-
-async function deleteForm(id) {
-  const form = await Form.findByPk(id);
-  if (!form) return false;
-  await form.destroy();
-  return true;
-}
-
-async function getFormWithFields(id) {
-  return Form.findByPk(id, { include: [{ model: Field, as: 'fields', order: [['order', 'ASC']] }] });
-}
-
-async function listSubmissions(formId, { page = 1, limit = 20, search = null, fromDate = null, toDate = null }) {
-  const offset = (page - 1) * limit;
-  const where = { form_id: formId };
-  const { Op } = require('sequelize');
-  if (fromDate || toDate) {
-    where.created_at = {};
-    if (fromDate) where.created_at[Op.gte] = new Date(fromDate);
-    if (toDate) where.created_at[Op.lte] = new Date(toDate);
-  }
-  if (search) {
-    // basic search scanning data JSON values (MySQL JSON search is limited — we do a LIKE on stringified JSON)
-    where.data = { [Op.like]: `%${search}%` };
-  }
-  const { count, rows } = await Submission.findAndCountAll({
-    where,
-    limit,
-    offset,
-    order: [['created_at', 'DESC']]
+/**
+ * Raw SQL example: fetch submissions with user email and form title.
+ * Uses raw SQL for performance for complex join (demo).
+ */
+async function fetchSubmissionsRaw(formId, limit = 100, offset = 0) {
+  const sql = `
+    SELECT s.id, s.formId, s.userId, s.data, s.files, s.createdAt,
+           u.email as userEmail, f.title as formTitle
+    FROM submissions s
+    LEFT JOIN users u ON u.id = s.userId
+    LEFT JOIN forms f ON f.id = s.formId
+    WHERE s.formId = :formId
+    ORDER BY s.createdAt DESC
+    LIMIT :limit OFFSET :offset
+  `;
+  const rows = await sequelize.query(sql, {
+    replacements: { formId, limit, offset },
+    type: QueryTypes.SELECT
   });
-  return { count, rows, page, limit };
+  return rows;
 }
 
 module.exports = {
   createForm,
-  updateForm,
-  deleteForm,
-  getFormWithFields,
-  listSubmissions
+  fetchSubmissionsRaw
 };
