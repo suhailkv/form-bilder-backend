@@ -12,6 +12,10 @@ const submissionRoutes = require('./routes/submissionRoutes');
 
 const { swaggerUi, spec } = require('./swagger');
 
+// uploads
+
+const uploadRouter = require('./routes/upload.routes');
+const multerErrorHandler = require('./middlewares/multerErrorHandler');
 const app = express();
 const cookieParser = require('cookie-parser')
 
@@ -21,6 +25,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 // app.use(bodyParser.json({ limit: '10mb' }));
 // app.use(bodyParser.urlencoded({ extended: true }));
+
+// uploads
+
+app.use('/api', uploadRouter);
+// Multer-specific error handler (must come after routes)
+app.use(multerErrorHandler);
+
 app.use('/uploads', express.static('uploads'));
 
 // Rate limiting
@@ -41,6 +52,10 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
 // Health
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ success: false, message: 'Internal server error' });
+});
 // Start server after DB connect
 const start = async () => {
   try {

@@ -10,7 +10,7 @@ async function createForm(payload, userId) {
     const form = await Form.create({
       title: payload.title || 'Untitled',
       description: payload.description || '',
-      json: payload,
+      schema: payload,
       thankYouMessage: payload.thankYouMessage || '',
       bannerImage: payload.bannerImage || '',
       createdBy: userId
