@@ -136,3 +136,29 @@ exports.getSubmissions = async (req, res) => {
         res.status(500).json(response(false, "Server error"));
     }
 }
+
+exports.publish = async (req,res) => {
+    try {
+    const { formId } = req.params;
+
+    const form = await Form.findByPk(formId);
+    if (!form) return res.status(404).json({ message: "Form not found" });
+
+    if (form.publishedAt) {
+      return res.status(400).json({ message: "Form is already published" });
+    }
+
+    form.publishedAt = new Date();
+
+    await form.save();
+
+    res.json({
+      message: "Form published successfully",
+      formId: form.id,
+      isPublished: true
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+}

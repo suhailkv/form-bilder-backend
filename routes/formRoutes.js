@@ -23,4 +23,5 @@ router.get('/:id', jwtAuth, formController.getForm);
 // Get submissions (admin)
 router.get('/:id/submissions', jwtAuth, formController.getSubmissions);
 
-module.exports = router;
+router.post("/:formId/publish",jwtAuth,formController.publish)
+module.exports   = router;
