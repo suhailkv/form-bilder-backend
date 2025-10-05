@@ -2,13 +2,9 @@ const express = require('express');
 const router = express.Router();
 const formController = require('../controllers/formController');
 const jwtAuth = require('../middlewares/jwtAuth');
-const { body } = require('express-validator');
 
 // Admin create
-router.post('/', jwtAuth, [
-  body('title').notEmpty().withMessage('title required'),
-  body('fields').isArray().withMessage('fields must be array')
-], formController.createForm);
+router.post('/', jwtAuth, formController.createForm);
 
 // Edit
 router.put('/:id', jwtAuth, formController.updateForm);

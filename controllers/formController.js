@@ -1,6 +1,5 @@
 const { Form, Field, Submission } = require('../models');
 const formService = require('../services/formService');
-const { validationResult } = require('express-validator');
 const response = require("../utils/responseModel");
 const { findAndPaginate } = require("../utils/getHandler");
 const { Op, where } = require('sequelize');
@@ -9,7 +8,7 @@ const admin = false
 exports.createForm = async (req, res) => {
     try {
 
-        const errors = validationResult(req);
+        const errors = _validateCreateForm(req.body);
         if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
         const payload = req.body;
@@ -173,4 +172,13 @@ exports.getTokenOfAForm = async (req,res) => {
     } catch (error) {
         res.status(500).json(response(false,"internal Sever Error"))
     }
+}
+
+const _validateCreateForm = (body) => {
+    const errors = []
+    if(!body.title) errors.push({msg : 'title required',parmas:'title'})
+    if(!body.fields) errors.push({msg : 'fields required',parmas:'fields'})
+    if(body.fields && !Array.isArray(body.fields)) errors.push( {msg:'fields must be array' ,paams : 'fields'})
+        return errors
+    
 }
