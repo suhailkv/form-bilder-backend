@@ -1,23 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const formController = require('../controllers/formController');
-const jwtAuth = require('../middlewares/jwtAuth');
+const tokenAuth = require('../middlewares/tokenAuth');
 
-// Admin create
-router.post('/', jwtAuth, formController.createForm);
+router.post('/', tokenAuth, formController.createForm);
+router.post("/:formId/publish",tokenAuth,formController.publish)
 
-// Edit
-router.put('/:id', jwtAuth, formController.updateForm);
+router.put('/:id', tokenAuth, formController.updateForm);
 
-// Delete
-router.delete('/:id', jwtAuth, formController.deleteForm);
+router.delete('/:id', tokenAuth, formController.deleteForm);
 
-// Public fetch (authenticated via externalBase64Auth endpoint which returns JWT on client)
-router.get('/', jwtAuth, formController.listForms);
-router.get('/:id', jwtAuth, formController.getForm);
+router.get('/', tokenAuth, formController.listForms);
+router.get('/:id', tokenAuth, formController.getForm);
+router.get('/:id/submissions', tokenAuth, formController.getSubmissions);
 
-// Get submissions (admin)
-router.get('/:id/submissions', jwtAuth, formController.getSubmissions);
-
-router.post("/:formId/publish",jwtAuth,formController.publish)
 module.exports   = router;

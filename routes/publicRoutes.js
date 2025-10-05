@@ -1,4 +1,3 @@
-// routes/publicRoutes.js
 const express = require("express");
 const router = express.Router();
 const publicController = require("../controllers/publicController");
@@ -15,8 +14,6 @@ router.get("/:formId", publicController.getForm);
 
 router.post("/:formId/request-otp", publicController.requestOtp);
 router.post("/:formId/verify-otp", publicController.verifyOtp);
-
-// For forms without email verification → apply limiter
 router.post("/forms/:formId/submissions", submissionLimiter, publicController.submitForm);
 
 module.exports = router;
