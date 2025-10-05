@@ -145,7 +145,7 @@ exports.validateSubmissionData = async (data, schema) => {
         }
         break;
 
-      case 'file': {
+      case 'uploadFile': {
         // File validation + movement from temp → final
         try {
           await ensureFinalDir();
