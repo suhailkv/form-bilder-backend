@@ -1,4 +1,3 @@
-// models/User.js
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define(
     "User",
@@ -292,7 +291,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     {
       tableName: "user",
-      timestamps: false, // since your schema uses explicit create_date/modify_date
+      timestamps: false, 
     }
   );
 

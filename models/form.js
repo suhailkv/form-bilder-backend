@@ -1,4 +1,3 @@
-// models/Form.js
 module.exports = (sequelize, DataTypes) => {
   const Form = sequelize.define("Form", {
     id : { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },

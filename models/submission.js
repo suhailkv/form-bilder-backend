@@ -1,4 +1,3 @@
-// models/Submission.js
 const crypto = require('crypto');
 
 module.exports = (sequelize, DataTypes) => {

@@ -1,4 +1,3 @@
-// models/Otp.js
 module.exports = (sequelize, DataTypes) => {
   const Otp = sequelize.define('Otp', {
     otpId: {
