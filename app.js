@@ -9,7 +9,7 @@ const logger = require('./utils/logger');
 const authRoutes = require('./routes/authRoutes');
 const formRoutes = require('./routes/formRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
-
+const publicRouter = require("./routes/publicRoutes")
 const { swaggerUi, spec } = require('./swagger');
 
 // uploads
@@ -45,7 +45,7 @@ app.use(limiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/forms', formRoutes);
 app.use('/api/submissions', submissionRoutes);
-
+app.use('/form',publicRouter)
 // Swagger
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
 

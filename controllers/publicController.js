@@ -1,9 +1,10 @@
 // controllers/publicController.js
-const { Form, Submission, Otp } = require("../models");
+const { Form, Submission, Otp ,OtpVerifyCount} = require("../models");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const axios = require("axios");
-
+const {encryptId,decryptId} = require("../utils/idCrypt");
+const { Op } = require("sequelize");
 // Mailer setup
 const transporter = nodemailer.createTransport({
   service: "gmail", // or SMTP
@@ -16,7 +17,10 @@ const transporter = nodemailer.createTransport({
 // Step 0: Fetch Form
 exports.getForm = async (req, res) => {
   try {
-    const form = await Form.findOne({ where: { id: req.params.formId, isPublished: true } });
+    const {encodedToken} = req.params
+    const token = decodeURIComponent(encodedToken);
+    const formId = decryptId(token)
+    const form = await Form.findOne({ where: { id: formId, publishedAt: {[Op.not] : null } } });
     if (!form) return res.status(404).json({ message: "Form not found or unpublished" });
     res.json(form);
   } catch (err) {
@@ -37,8 +41,13 @@ exports.requestOtp = async (req, res) => {
 
     const otp = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    await Otp.create({ email, otp, expiresAt });
+    const now = new Date()
+    await Otp.create(
+        { email, 
+            otp, 
+            type : 'FORM_SUBMISSION',
+        expiresAt ,
+    createdAt : now});
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -56,14 +65,40 @@ exports.requestOtp = async (req, res) => {
 // Step 2: Verify OTP
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    const record = await Otp.findOne({ where: { email, otp } });
-
+    const { email, otp ,formToken} = req.body;
+    const record = await Otp.findOne({ where: { email, otp } , order: [["createdAt", "DESC"]] });
+    // decrypt form Token and 
+    const formId = decryptId(formToken)
+    const form = Form.findOne({
+        where : {
+            id : formId
+        }
+    })
+    if(!form) return res.status(400).json(response(false,"Not acceptable"))
     if (!record || record.expiresAt < new Date()) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
     await record.destroy();
+    const otpcount = await OtpVerifyCount.findOne({
+        where : {
+           email : email,
+        fromId : formId, 
+        }
+    })
+    if(!otpcount){
+
+        await OtpVerifyCount.create({
+            email : email,
+            fromId : formId,
+            count : 1,
+            createdAt : new Date()
+        })
+    }else{
+
+        otpcount.count += 1
+        await otpcount.save()
+    }
     res.json({ message: "OTP verified successfully", verified: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -77,7 +112,7 @@ exports.submitForm = async (req, res) => {
     if (!form) return res.status(404).json({ message: "Form not found or unpublished" });
 
     const { email, data, captchaToken } = req.body;
-
+// TODO : need to check email is verofoed or not
     // Case 1: Email Verification Enabled
     if (form.requireEmailVerification) {
       if (!email) return res.status(400).json({ message: "Email required" });

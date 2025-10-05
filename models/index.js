@@ -4,13 +4,15 @@ const FormModel = require('./form');
 const FieldModel = require('./field');
 const OtpModel = require("./Otp")
 const SubmissionModel = require('./submission');
+const OtpVerifyCountModel = require("./OtpVerifyCount")
 const { DataTypes } = require('sequelize');
 
 const User = UserModel(sequelize,DataTypes);
 const Form = FormModel(sequelize,DataTypes);
 const Field = FieldModel(sequelize,DataTypes);
 const Submission = SubmissionModel(sequelize,DataTypes);
-const Otp = OtpModel(sequelize,DataTypes)
+const Otp = OtpModel(sequelize,DataTypes);
+const OtpVerifyCount = OtpVerifyCountModel(sequelize,DataTypes)
 // Associations
 Form.hasMany(Field, { foreignKey: 'formId', as: 'fields' });
 Field.belongsTo(Form, { foreignKey: 'formId' });
@@ -27,5 +29,6 @@ module.exports = {
   Form,
   Field,
   Submission,
-  Otp
+  Otp,
+  OtpVerifyCount
 };

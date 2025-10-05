@@ -1,78 +1,155 @@
+// controllers/submissionController.js
 const { Submission, Form } = require('../models');
-const multer = require('multer');
-const configGlobal = require('../config/config');
-const path = require('path');
-const fs = require('fs');
-const { Op } = require('sequelize');
+const { uploadMiddleware } = require('../middlewares/uploadMiddleware');
+const { validateSubmissionData } = require('../utils/submissionValidator');
+const response = require("../utils/responseModel");
 
-// Setup uploader
-const uploadsDir = configGlobal.uploadsDir;
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const crypto = require('crypto');
 
-// Multer storage to store files with timestamp
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const name = `${Date.now()}_${Math.random().toString(36).slice(2,8)}_${file.originalname}`;
-    cb(null, name);
-  }
-});
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit per file
-
-// Handler factory to accept dynamic set of files
+/**
+ * Submit a form with optional file uploads
+ * Route: POST /api/forms/:id/submit
+ */
 exports.submitForm = [
-  // upload.any() will accept all files - in production you can restrict by fieldnames
-  upload.any(),
   async (req, res) => {
     try {
-      const formId = req.params.id;
+      const formId = parseInt(req.params.id);
+      
+      if (!formId || isNaN(formId)) return res.status(400).json(response(false,"Invalid form"))
+     
+
+      // Fetch form details
       const form = await Form.findByPk(formId);
-      if (!form) return res.status(404).json({ message: 'Form not found' });
+      if (!form) return res.status(404).json(response(false,'Form not found'))
+       
 
-      // validate body data - expecting JSON in req.body.data (or raw fields)
-      // Many clients will send fields as JSON in body; attempt to parse
-      let data = req.body.data;
-      if (!data) {
-        // If not provided as a json string, use req.body but exclude any multer fields
-        data = { ...req.body };
-      } else {
-        try { data = JSON.parse(data); } catch (err) {}
-      }
+      if (!form.publishedAt) return res.status(403).json(response(false,'This form is not accepting submissions'))
+    
 
-      // Build files map
-      const filesMap = {};
-      if (Array.isArray(req.files)) {
-        for (const f of req.files) {
-          // fieldname indicates which field in form JSON
-          filesMap[f.fieldname] = f.filename;
+      // Parse submission data
+      let parsedData = req.body.data || req.body;
+      if (typeof parsedData === 'string') {
+        try {
+          parsedData = JSON.parse(parsedData);
+        } catch (err) {
+          return res.status(400).json(response(false,'Invalid data format'))
+       
         }
       }
 
-      // Save submission
+      // Extract email
+      const submissionEmail = req.body.email || parsedData.email || null;
+
+      
+
+      // Check submission limits
+      if (submissionEmail && form.maxSubmissionsPerUser > 0) {
+        const existingCount = await Submission.count({
+          where: {
+            formId: form.id,
+            email: submissionEmail
+          }
+        });
+
+        if (existingCount >= form.maxSubmissionsPerUser) {
+          return res.status(429).json(response(false,`You have reached the maximum ${form.maxSubmissionsPerUser} submission(s) allowed for this form`))
+        }
+      }
+      const requiresVerification = form.requireEmailVerification 
+      if(requiresVerification && !req.isVerified) return res.status(401).json(response(false,'Please Verify Email'))
+
+// Validate against form schema
+      if (form.schema) {
+        const validation = await validateSubmissionData(parsedData, form.schema);
+        if (!validation.isValid) {
+          return res.status(400).json(response(false,'Validation failed',validation.errors ))
+        }
+      }
+      // Process uploaded files
+      const filesMap = {};
+      if (Array.isArray(req.files) && req.files.length > 0) {
+        for (const file of req.files) {
+          filesMap[file.fieldname] = file.filename;
+        }
+      }
+
+      // Prepare final data with file references
+      const finalData = {
+        ...parsedData,
+        _files: filesMap
+      };
+
+      // Create submission
       const submission = await Submission.create({
         formId: form.id,
-        userId: req.user ? req.user.id : null,
-        data,
-        files: filesMap,
-        ip: req.ip
+        email: submissionEmail,
+        isVerified: !form.requireEmailVerification,
+        data: finalData,
+        userIP: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'] || null,
+        referrer: req.headers['referer'] || req.headers['referrer'] || null
       });
 
-      return res.json({ success: true, submissionId: submission.id, thankYouMessage: form.thankYouMessage || 'Thanks!' });
+      // Handle email verification if required
+    //   const requiresVerification = form.requireEmailVerification 
+      
+    //   if (requiresVerification) {
+    //     // TODO: Send verification email
+    //     console.log(`Send verification email to: ${submissionEmail}`);
+    //     console.log(`Verification token: ${submission.submissionToken}`);
+    //     // await emailService.sendVerificationEmail(submissionEmail, submission.submissionToken);
+    //   }
+
+      return res.status(201).json({
+        success: true,
+        submissionId: submission.id,
+        submissionToken: submission.submissionToken,
+        message: form.thankYouMessage || 'Thank you for your submission!',
+        requiresVerification
+      });
+
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: 'Server error' });
+      console.error('Submission error:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Unable to process submission. Please try again.' 
+      });
     }
   }
 ];
 
-exports.getMySubmissions = async (req, res) => {
+
+/**
+ * Get single submission by token (for user to view their submission)
+ * Route: GET /api/submissions/:token
+ */
+exports.getSubmissionByToken = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const subs = await Submission.findAll({ where: { userId }, order: [['createdAt','DESC']], limit: 200 });
-    return res.json({ submissions: subs });
+    const { token } = req.params;
+    
+    const submission = await Submission.findOne({
+      where: { submissionToken: token },
+      include: [{
+        model: Form,
+        attributes: ['id', 'title', 'description', 'thankYouMessage']
+      }]
+    });
+
+    if (!submission) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Submission not found' 
+      });
+    }
+
+    return res.json(response(true,submission))
+       
+
   } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
+    console.error('Get submission error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Unable to retrieve submission' 
+    });
   }
 };

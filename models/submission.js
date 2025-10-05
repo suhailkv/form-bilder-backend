@@ -3,11 +3,12 @@ const crypto = require('crypto');
 
 module.exports = (sequelize, DataTypes) => {
   const Submission = sequelize.define("Submission", {
+    id : { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
     formId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
     email: { type: DataTypes.STRING(255), allowNull: true },
     isVerified: { type: DataTypes.BOOLEAN, defaultValue: false },
     data: { type: DataTypes.JSON, allowNull: false },
-    submissionToken: { type: DataTypes.STRING(100), allowNull: false, unique: true },
+    submissionToken: { type: DataTypes.STRING(100), allowNull: true, unique: true },
     userIP: { type: DataTypes.STRING(45), allowNull: true },
     userAgent: { type: DataTypes.STRING(255), allowNull: true },
     referrer: { type: DataTypes.STRING(255), allowNull: true },

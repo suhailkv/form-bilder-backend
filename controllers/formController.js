@@ -4,6 +4,7 @@ const { validationResult } = require('express-validator');
 const response = require("../utils/responseModel");
 const { findAndPaginate } = require("../utils/getHandler");
 const { Op, where } = require('sequelize');
+const { encryptId } = require('../utils/idCrypt');
 const admin = false
 exports.createForm = async (req, res) => {
     try {
@@ -125,9 +126,9 @@ exports.getSubmissions = async (req, res) => {
         const { id } = req.params;
 
         const submissions = await Submission.findAll({
-            where: { id },
+            where: { formId : id },
             order: [["createdAt", "DESC"]],
-            attributes: ["id", "email", "isVerified", "submissionToken", "createdAt"]
+            attributes: ["id", "email", "isVerified", "submissionToken", "createdAt","fromId"]
         });
 
         res.json(response(true, "OK", submissions));
@@ -151,14 +152,25 @@ exports.publish = async (req,res) => {
     form.publishedAt = new Date();
 
     await form.save();
-
+    const formToken = encryptId(form.id)
     res.json({
       message: "Form published successfully",
       formId: form.id,
+      formToken : encodeURIComponent(formToken),
       isPublished: true
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
+}
+
+exports.getTokenOfAForm = async (req,res) => {
+    try {
+        const id = req.params.id;
+        const encryptid = encodeURIComponent(encryptId(id));
+        res.status(200).json(true,encryptid)
+    } catch (error) {
+        res.status(500).json(response(false,"internal Sever Error"))
+    }
 }

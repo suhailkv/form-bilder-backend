@@ -13,6 +13,7 @@ async function createForm(payload, userId) {
       schema: payload,
       thankYouMessage: payload.thankYouMessage || '',
       bannerImage: payload.bannerImage || '',
+      requireEmailVerification : payload.emailVerification || false,
       createdBy: userId
     }, { transaction: t });
 
