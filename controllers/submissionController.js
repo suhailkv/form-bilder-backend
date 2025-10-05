@@ -1,6 +1,5 @@
 // controllers/submissionController.js
 const { Submission, Form } = require('../models');
-const { uploadMiddleware } = require('../middlewares/uploadMiddleware');
 const { validateSubmissionData } = require('../utils/submissionValidator');
 const response = require("../utils/responseModel");
 
