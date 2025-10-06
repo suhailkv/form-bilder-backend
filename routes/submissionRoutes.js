@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const submissionController = require('../controllers/submissionController');
-
-router.post('/forms/:id/submit', submissionController.submitForm);
-router.get('/submissions/:encodedToken', submissionController.getSubmissionByToken);
+const checkOtpVerified = require('../middlewares/checkOtpVerified')
+router.post('/forms/:id/submit',checkOtpVerified, submissionController.submitForm);
+router.get('/submissions/:token', submissionController.getSubmissionByToken);
 
 module.exports = router;

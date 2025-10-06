@@ -144,14 +144,14 @@ exports.publish = async (req,res) => {
     const form = await Form.findByPk(formId);
     if (!form) return res.status(404).json({ message: "Form not found" });
 
-    if (form.publishedAt) {
-      return res.status(400).json({ message: "Form is already published" });
-    }
-
+    
     form.publishedAt = new Date();
-
-    await form.save();
     const formToken = encryptId(form.id)
+    
+    if (form.publishedAt) {
+      return res.status(400).json(response(false,"Form is already published",encodeURIComponent(formToken)));
+    }
+    await form.save();
     res.json({
       message: "Form published successfully",
       formId: form.id,

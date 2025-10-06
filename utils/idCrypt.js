@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 const ALGO = 'aes-256-gcm';
-const IV_LENGTH = 12;  // Recommended size for GCM
+const IV_LENGTH = 12;  // Recommended for GCM
 const KEY_LENGTH = 32; // 256-bit key
 
 function getKey(secret) {
@@ -10,26 +10,30 @@ function getKey(secret) {
 }
 
 /**
- * Encrypts a numeric ID and returns a compact base64url-safe string
+ * Derives a deterministic IV from ID + secret
  */
-function encryptId(id, secret = process.env.ID_ENC_SECRET_KEY) {
+function deriveIV(id, secret) {
+  return crypto.createHash('sha256').update(`${id}:${secret}`).digest().subarray(0, IV_LENGTH);
+}
+
+/**
+ * Encrypts a numeric ID and returns a compact base64url-safe string.
+ * @param {string|number} id - ID to encrypt
+ * @param {string} [secret=process.env.ID_ENC_SECRET_KEY] - Secret key
+ * @param {boolean} [randomize=false] - Whether to randomize encryption (different result each time)
+ */
+function encryptId(id, secret = process.env.ID_ENC_SECRET_KEY, randomize = false) {
   if (!secret) throw new Error('Secret key not provided or missing in environment.');
   if (typeof id === 'undefined' || id === null) throw new Error('ID is required.');
 
   const key = getKey(secret);
-  const iv = crypto.randomBytes(IV_LENGTH);
+  const iv = randomize ? crypto.randomBytes(IV_LENGTH) : deriveIV(id, secret);
 
   const cipher = crypto.createCipheriv(ALGO, key, iv, { authTagLength: 16 });
-  const encrypted = Buffer.concat([
-    cipher.update(String(id), 'utf8'),
-    cipher.final()
-  ]);
+  const encrypted = Buffer.concat([cipher.update(String(id), 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
-  // Combine iv + tag + encrypted data
   const payload = Buffer.concat([iv, authTag, encrypted]);
-
-  // Convert to URL-safe base64 (replace +,/)
   return payload.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -41,8 +45,6 @@ function decryptId(encryptedId, secret = process.env.ID_ENC_SECRET_KEY) {
   if (!encryptedId) throw new Error('Encrypted ID is required.');
 
   const key = getKey(secret);
-
-  // Convert URL-safe base64 back to normal
   const data = Buffer.from(encryptedId.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
 
   const iv = data.subarray(0, IV_LENGTH);

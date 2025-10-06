@@ -17,4 +17,6 @@ module.exports = {
     logging: true
   },
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
+  tempUploadsDir: process.env.UPLOADS_DIR || 'temp_uploads',
+
 };

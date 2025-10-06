@@ -1,5 +1,4 @@
 const { Form ,OtpVerifyCount} = require("../models");
-const OtpVerifyCount = require("../models/OtpVerifyCount");
 const {decryptId} = require("../utils/idCrypt")
 const response = require("../utils/responseModel")
 async function checkOtpVerified(req, res, next) {
@@ -26,3 +25,4 @@ async function checkOtpVerified(req, res, next) {
         return res.status(500).json(response(false,"internal Sever Error"))
     }
 }
+module.exports = checkOtpVerified;

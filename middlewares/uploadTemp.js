@@ -1,4 +1,3 @@
-// src/middleware/uploadTemp.js
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -8,7 +7,6 @@ const util = require('util');
 const mkdir = util.promisify(fs.mkdir);
 const stat = util.promisify(fs.stat);
 const unlink = util.promisify(fs.unlink);
-
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'temp');
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20 MB

@@ -10,7 +10,7 @@ const submissionLimiter = rateLimit({
   message: { message: "Too many submissions from this IP, try again later" }
 });
 
-router.get("/:formId", publicController.getForm);
+router.get("/:encodedToken", publicController.getForm);
 
 router.post("/:formId/request-otp", publicController.requestOtp);
 router.post("/:formId/verify-otp", publicController.verifyOtp);
