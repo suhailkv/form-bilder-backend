@@ -19,12 +19,11 @@ const multerErrorHandler = require('./middlewares/multerErrorHandler');
 const app = express();
 const cookieParser = require('cookie-parser')
 
-app.use(cors());
+app.use(cors({credentials: true, origin: true}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 // app.use(bodyParser.json({ limit: '10mb' }));
-// app.use(bodyParser.urlencoded({ extended: true }));
 
 // uploads
 
@@ -56,6 +55,7 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
+
 // Start server after DB connect
 const start = async () => {
   try {
