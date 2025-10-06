@@ -117,7 +117,7 @@ async function tokenAuth(req, res, next) {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
-      req.user = user;
+      req.user = { userId: user.userID };
       return next();
     } catch (err) {
       return res.status(401).json({ message: "Invalid query token" });
