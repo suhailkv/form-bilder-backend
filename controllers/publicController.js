@@ -5,14 +5,15 @@ const nodemailer = require("nodemailer");
 const axios = require("axios");
 const {encryptId,decryptId} = require("../utils/idCrypt");
 const { Op } = require("sequelize");
+const response = require("../utils/responseModel")
 // Mailer setup
-const transporter = nodemailer.createTransport({
-  service: "gmail", // or SMTP
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+// const transporter = nodemailer.createTransport({
+//   service: "gmail", // or SMTP
+//   auth: {
+//     user: process.env.EMAIL_USER,
+//     pass: process.env.EMAIL_PASS
+//   }
+// });
 
 // Step 0: Fetch Form
 exports.getForm = async (req, res) => {
@@ -21,10 +22,10 @@ exports.getForm = async (req, res) => {
     const token = decodeURIComponent(encodedToken);
     const formId = decryptId(token)
     const form = await Form.findOne({ where: { id: formId, publishedAt: {[Op.not] : null } } });
-    if (!form) return res.status(404).json({ message: "Form not found or unpublished" });
-    res.json(form);
+    if (!form) return res.status(404).json(response(false,"Form not found or unpublished"));
+    res.json(response(true,"OK",form));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+  res.status(500).json(response(false,err.message ));
   }
 };
 
@@ -33,8 +34,9 @@ exports.requestOtp = async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Email is required" });
-
-    const form = await Form.findOne({ where: { id: req.params.formId, isPublished: true } });
+    const formToken = req.params.formId
+    const formId = decryptId(formToken)
+    const form = await Form.findOne({ where: { id: formId} });
     if (!form || !form.requireEmailVerification) {
       return res.status(400).json({ message: "Form does not require email verification" });
     }
@@ -49,14 +51,14 @@ exports.requestOtp = async (req, res) => {
         expiresAt ,
     createdAt : now});
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP code is: ${otp}`
-    });
+    // await transporter.sendMail({
+    //   from: process.env.EMAIL_USER,
+    //   to: email,
+    //   subject: "Your OTP Code",
+    //   text: `Your OTP code is: ${otp}`
+    // });
 
-    res.json({ message: "OTP sent to email" });
+    res.json(response(true,"OTP sent to email" ));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -65,7 +67,7 @@ exports.requestOtp = async (req, res) => {
 // Step 2: Verify OTP
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp ,formToken} = req.body;
+    const { email, otp ,                                     } = req.body;
     const record = await Otp.findOne({ where: { email, otp } , order: [["createdAt", "DESC"]] });
     // decrypt form Token and 
     const formId = decryptId(formToken)
@@ -108,7 +110,7 @@ exports.verifyOtp = async (req, res) => {
 // Step 3: Submit Form
 exports.submitForm = async (req, res) => {
   try {
-    const form = await Form.findOne({ where: { id: req.params.formId, isPublished: true } });
+    const form = await Form.findOne({ where: { id: req.params.formId } });
     if (!form) return res.status(404).json({ message: "Form not found or unpublished" });
 
     const { email, data, captchaToken } = req.body;

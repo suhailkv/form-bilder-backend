@@ -9,7 +9,7 @@ exports.createForm = async (req, res) => {
     try {
 
         const errors = _validateCreateForm(req.body);
-        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+        if (errors.length) return res.status(400).json({ errors: errors });
 
         const payload = req.body;
         const form = await formService.createForm(payload, req.user.userId);
@@ -114,7 +114,8 @@ exports.listForms = async (req, res) => {
             },
             order: [['createdAt', 'DESC']]
         });
-        return res.status(200).json(response("success", "OK", forms));
+        const formWithFormId = forms.data.map(form => ({...form,formToken: encryptId(form.id)}))
+        return res.status(200).json(response("success", "OK", formWithFormId));
     } catch (err) {
         return res.status(500).json(response(false, "Server error"));
     }
@@ -124,13 +125,15 @@ exports.getSubmissions = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const submissions = await Submission.findAll({
+        const submissions = await findAndPaginate(Submission,req.query,
+            {
             where: { formId : id },
             order: [["createdAt", "DESC"]],
-            attributes: ["id", "email", "isVerified", "submissionToken", "createdAt","fromId"]
+            attributes: ["id", "email", "isVerified", "submissionToken", "updatedAt","formId","userIP","userAgent","data","referrer"]
         });
+        const formSchema = await Form.findOne({id : id})
 
-        res.json(response(true, "OK", submissions));
+        res.json(response(true, "OK", { schema: formSchema, answers: submissions.data }, submissions.meta));
     } catch (error) {
         console.error(error);
         res.status(500).json(response(false, "Server error"));
@@ -145,18 +148,18 @@ exports.publish = async (req,res) => {
     if (!form) return res.status(404).json({ message: "Form not found" });
 
     
-    form.publishedAt = new Date();
     const formToken = encryptId(form.id)
     
     if (form.publishedAt) {
-      return res.status(400).json(response(false,"Form is already published",encodeURIComponent(formToken)));
+        return res.status(400).json(response(false,"Form is already published",encodeURIComponent(formToken)));
     }
+    form.publishedAt = new Date();
     await form.save();
     res.json({
       message: "Form published successfully",
       formId: form.id,
       formToken : encodeURIComponent(formToken),
-      isPublished: true
+    //   isPublished: true
     });
   } catch (error) {
     console.error(error);
@@ -174,6 +177,23 @@ exports.getTokenOfAForm = async (req,res) => {
     }
 }
 
+const exportsAllSubmission = async (req,res) => {
+    try {
+        const id = 8;
+         const submissions = await Submission.findAll(
+            {
+            where: { formId : id },
+            order: [["createdAt", "DESC"]],
+            attributes: ["data"]
+        });
+        const formSchema = await Form.findOne({id});
+
+        console.log(submissions)
+    } catch (error) {
+        res.status(500).json(response(false,"internal Sever Error"))
+    }
+}
+exportsAllSubmission()
 const _validateCreateForm = (body) => {
     const errors = []
     if(!body.title) errors.push({msg : 'title required',parmas:'title'})

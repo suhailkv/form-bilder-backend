@@ -32,7 +32,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     updatedAt: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
+      defaultvalue: null
     }
   }, {
     tableName: 'public_otp',
