@@ -67,7 +67,9 @@ exports.requestOtp = async (req, res) => {
 // Step 2: Verify OTP
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp ,                                     } = req.body;
+    const { email, otp} = req.body;
+    const formToken = req.params.formId
+    console.log(formToken)
     const record = await Otp.findOne({ where: { email, otp } , order: [["createdAt", "DESC"]] });
     // decrypt form Token and 
     const formId = decryptId(formToken)
@@ -111,23 +113,23 @@ exports.verifyOtp = async (req, res) => {
 exports.submitForm = async (req, res) => {
   try {
     const form = await Form.findOne({ where: { id: req.params.formId } });
-    if (!form) return res.status(404).json({ message: "Form not found or unpublished" });
+    if (!form) return res.status(404).json(response(false,"Form not found or unpublished" ));
 
     const { email, data, captchaToken } = req.body;
 // TODO : need to check email is verofoed or not
     // Case 1: Email Verification Enabled
     if (form.requireEmailVerification) {
-      if (!email) return res.status(400).json({ message: "Email required" });
+      if (!email) return res.status(400).json(response(false,"Email required" ));
 
       // Check submission limit per email
       const submissionCount = await Submission.count({ where: { formId: form.id, email } });
       if (submissionCount >= form.maxSubmissionsPerUser) {
-        return res.status(400).json({ message: "Submission limit reached for this form" });
+        return res.status(400).json(response(false,"Submission limit reached for this form" ));
       }
 
       // Ensure OTP was verified
       const otpRecord = await Otp.findOne({ where: { email } });
-      if (otpRecord) return res.status(400).json({ message: "OTP not verified" });
+      if (otpRecord) return res.status(400).json(response(false,"OTP not verified" ));
 
       // Save submission
       const submission = await Submission.create({
@@ -137,7 +139,7 @@ exports.submitForm = async (req, res) => {
         data
       });
 
-      return res.status(201).json({ message: "Submission successful", submissionId: submission.id });
+      return res.status(201).json(response(true,"Submission successful", {submissionId: submission.id} ));
     }
 
     // Case 2: Email Verification Disabled → use CAPTCHA

@@ -12,6 +12,7 @@ router.delete('/:id', tokenAuth, formController.deleteForm);
 
 router.get('/', tokenAuth, formController.listForms);
 router.get('/:id', tokenAuth, formController.getForm);
-router.get('/:id/submissions', tokenAuth, formController.getSubmissions);
+router.get('/:id/submissions', formController.getSubmissions);
+router.get('/:id/submissions/all', tokenAuth, formController.getAllResponses);
 
 module.exports   = router;

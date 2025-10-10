@@ -4,6 +4,8 @@ const { validateSubmissionData } = require('../utils/submissionValidator');
 const response = require("../utils/responseModel");
 
 const crypto = require('crypto');
+const { decrypt } = require('dotenv');
+const { decryptId } = require('../utils/idCrypt');
 
 /**
  * Submit a form with optional file uploads
@@ -12,7 +14,8 @@ const crypto = require('crypto');
 exports.submitForm = [
   async (req, res) => {
     try {
-      const formId = parseInt(req.params.id);
+      const formToken = req.params.id;
+      const formId = decryptId(formToken)
       
       if (!formId || isNaN(formId)) return res.status(400).json(response(false,"Invalid form"))
      
@@ -54,7 +57,8 @@ exports.submitForm = [
           return res.status(429).json(response(false,`You have reached the maximum ${form.maxSubmissionsPerUser} submission(s) allowed for this form`))
         }
       }
-      const requiresVerification = form.requireEmailVerification 
+      const requiresVerification = form.
+      requireEmailVerification 
       if(requiresVerification && !req.isVerified) return res.status(401).json(response(false,'Please Verify Email'))
 
 // Validate against form schema

@@ -15,6 +15,7 @@ const MAX_TOTAL_SIZE = 20 * 1024 * 1024; // 20 MB
 const allowedExts = new Set(['.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx']);
 const allowedMimes = new Set([
   'image/jpeg',
+  'image/jpg',
   'image/png',
   'application/pdf',
   // doc and docx MIME types
@@ -148,6 +149,7 @@ async function uploadTempHandler(req, res, next) {
     //   path: `/uploads/temp/${f.filename}`,
       mimeType: f.mimetype,
       size: f.size,
+      src : `${process.env.BACKEND_URL}/uploads/temp/${f.filename}`
     }));
 
     return res.json({ success: true, files: responseFiles });

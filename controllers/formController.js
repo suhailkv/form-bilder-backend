@@ -2,7 +2,7 @@ const { Form, Field, Submission } = require('../models');
 const formService = require('../services/formService');
 const response = require("../utils/responseModel");
 const { findAndPaginate } = require("../utils/getHandler");
-const { Op, where } = require('sequelize');
+const { Op, where, Sequelize } = require('sequelize');
 const { encryptId } = require('../utils/idCrypt');
 const admin = false
 exports.createForm = async (req, res) => {
@@ -31,22 +31,23 @@ exports.updateForm = async (req, res) => {
         const payload = req.body;
         form.title = payload.title || form.title;
         form.description = payload.description || form.description;
-        form.json = payload;
+        form.schema = payload;
         form.thankYouMessage = payload.thankYouMessage || form.thankYouMessage;
         form.bannerImage = payload.bannerImage || form.bannerImage;
+        form.requireEmailVerification = payload.emailVerification
         await form.save();
 
         await Field.destroy({ where: { formId: form.id } });
         if (Array.isArray(payload.fields)) {
             for (const f of payload.fields) {
-                await Field.create({ formId: form.id, fieldId: f.id, definition: f });
+                await Field.create({ formId: form.id, fieldId: f.id, definition: f ,createdBy : req.user?.userId || 0   });
             }
         }
 
-        return res.json({ form });
+        return res.json(response(true,"OK",form));
     } catch (err) {
         console.error(err);
-        return res.status(500).json({ message: 'Server error' });
+        return res.status(500).json(response(false, 'Server error'));
     }
 };
 
@@ -107,7 +108,11 @@ exports.listForms = async (req, res) => {
     try {
         const userId = req.user.userId;
         const forms = await findAndPaginate(Form, req.query, {
-            attributes: ['id', 'title', 'description', 'thankYouMessage', 'bannerImage', 'createdAt'],
+            attributes: ['id', 'title', 'description', 'thankYouMessage', 'bannerImage', 'createdAt',
+
+            [Sequelize.literal(`CASE WHEN Form.publishedAt IS NULL THEN FALSE ELSE TRUE END`),"isPublished"],
+            [Sequelize.literal(`(SELECT COUNT(*) FROM submissions WHERE formId = Form.id)`),"submissionCount"]
+            ],
             where: {
                 deletedAt: { [Op.is]: null },
                 ...(admin ? {} : { createdBy: userId })
@@ -115,31 +120,130 @@ exports.listForms = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
         const formWithFormId = forms.data.map(form => ({...form,formToken: encryptId(form.id)}))
-        return res.status(200).json(response("success", "OK", formWithFormId));
+        return res.status(200).json(response("success", "OK", formWithFormId,forms.meta));
     } catch (err) {
         return res.status(500).json(response(false, "Server error"));
     }
 };
 
 exports.getSubmissions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch submissions with pagination
+    const submissions = await findAndPaginate(Submission, req.query, {
+      where: { formId: id },
+      order: [["createdAt", "DESC"]],
+      attributes: [
+        "id",
+        "email",
+        "isVerified",
+        "submissionToken",
+        "updatedAt",
+        "formId",
+        "userIP",
+        "userAgent",
+        "data",
+        "referrer",
+        "createdAt",
+      ],
+    });
+
+    // Fetch form schema
+    const formSchema = await Form.findOne({ where: { id } });
+    const fields = Array.isArray(formSchema?.schema?.fields)
+      ? formSchema.schema.fields.map((field) => ({
+          id: field.id,
+          label: field.label,
+          type: field.type,
+        }))
+      : [];
+
+    const fieldMap = Object.fromEntries(fields.map((f) => [f.id, f]));
+
+    // Format each submission properly
+    const formattedData = submissions.data.map((sub, index) => {
+      const fieldValues = [];
+
+      for (const [key, value] of Object.entries(sub.data || {})) {
+        if (key === "_files") continue; // Skip internal field
+        const field = fieldMap[key];
+        if (field) {
+          fieldValues.push({
+            type: field.type,
+            label: field.label,
+            value : field.type == "uploadFile" ? `${process.env.BACKEND_URL}/uploads/final/${value}`: value ,
+          });
+        }
+      }
+
+      return {
+        sl_no: index + 1,
+        id: sub.id,
+        email: sub.email,
+        isVerified: sub.isVerified,
+        submissionToken: sub.submissionToken,
+        updatedAt: sub.updatedAt,
+        createdAt: sub.createdAt,
+        formId: sub.formId,
+        userIP: sub.userIP,
+        userAgent: sub.userAgent,
+        referrer: sub.r4eferrer,
+        fields: fieldValues,
+      };
+    });
+
+    res.json(response(true, "OK", formattedData, submissions.meta));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json(response(false, "Server error"));
+  }
+};
+
+exports.getAllResponses = async (req, res) => {
     try {
         const { id } = req.params;
-
+        req.query.limit = !req.query.limit ? "no" :req.query.limit 
         const submissions = await findAndPaginate(Submission,req.query,
             {
             where: { formId : id },
             order: [["createdAt", "DESC"]],
             attributes: ["id", "email", "isVerified", "submissionToken", "updatedAt","formId","userIP","userAgent","data","referrer"]
         });
-        const formSchema = await Form.findOne({id : id})
+        const formSchema = await Form.findOne({where : {id:id }})
+        const fields = Array.isArray(formSchema?.schema?.fields) ? formSchema.schema.fields.map(field => ({
+      id: field.id,
+      label: field.label,
+      type : field.type
+    })) : [];
 
-        res.json(response(true, "OK", { schema: formSchema, answers: submissions.data }, submissions.meta));
+    // 3️⃣ Create a quick lookup map for fieldId → label
+const fieldMap = Object.fromEntries(fields.map(f => [f.id, f]));
+
+// 4️⃣ Transform each submission’s data
+const formattedData = submissions.data.map(sub => {
+  const result = [];
+
+  for (const [key, value] of Object.entries(sub.data)) {
+    if (key === '_files') continue;
+    const field = fieldMap[key];
+    if (field) {
+      result.push({
+        type: field.type,
+        label: field.label,
+        value
+      });
+    }
+  }
+
+  return result;
+});
+        res.json(response(true, "OK", formattedData, submissions.meta));
     } catch (error) {
         console.error(error);
         res.status(500).json(response(false, "Server error"));
     }
 }
-
 exports.publish = async (req,res) => {
     try {
     const { formId } = req.params;
