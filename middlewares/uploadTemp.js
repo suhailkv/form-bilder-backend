@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { v4: uuidv4 } = require('uuid');
+// const { v4: uuidv4 } = require('uuid');
 const util = require('util');
 
 const mkdir = util.promisify(fs.mkdir);
@@ -52,11 +52,12 @@ const storage = multer.diskStorage({
       cb(err);
     }
   },
-  filename: (req, file, cb) => {
+  filename: async (req, file, cb) => {
     // Ensure extension is taken only from originalName and sanitized
     const ext = path.extname(file.originalname || '').toLowerCase();
     // default to empty ext if none
     const safeExt = allowedExts.has(ext) ? ext : '';
+    const {v4:uuidv4} = await import("uuid")
     const filename = uuidv4() + safeExt;
     cb(null, filename);
   },
