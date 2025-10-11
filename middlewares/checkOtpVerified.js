@@ -5,12 +5,12 @@ async function checkOtpVerified(req, res, next) {
 
     try {
         const email = req.body.email;
-        const formToken = parseInt(req.params.id);
+        const formToken = req.params.id;
         const formId = decryptId(formToken)
         const form = await Form.findByPk(formId);
         if (!form) return res.status(404).json(response(false,'Form not found'))
             req.isVerified = false
-        const isEmailVerifRequired = form.isEmailVerifRequired;
+        const isEmailVerifRequired = form.requireEmailVerification;
     if(!isEmailVerifRequired) return next();
     const verifyCount = await OtpVerifyCount.findOne({
         where : {
@@ -19,6 +19,7 @@ async function checkOtpVerified(req, res, next) {
         }
     });
     if(!verifyCount || verifyCount?.count < 1) res.status(400).json(response(false,"Please Verify Your Email"));
+    req.isVerified = true
     next()
 
     } catch (error) {

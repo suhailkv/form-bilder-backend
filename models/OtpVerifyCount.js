@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(255),
         allowNull: false,
     },
-    fromId: {
+    formId: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: false,
@@ -35,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
  * CREATE TABLE `otp_verify_count` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `email` VARCHAR(255) NOT NULL,
-  `fromId` INT NOT NULL DEFAULT 0,
+  `formId` INT NOT NULL DEFAULT 0,
    `count` INT NOT NULL DEFAULT 0,
   `createdAt` DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

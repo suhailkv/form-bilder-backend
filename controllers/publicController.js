@@ -74,7 +74,7 @@ exports.verifyOtp = async (req, res) => {
     const record = await Otp.findOne({ where: { email, otp } , order: [["createdAt", "DESC"]] });
     // decrypt form Token and 
     const formId = decryptId(formToken)
-    const form = Form.findOne({
+    const form = await Form.findOne({
         where : {
             id : formId
         }
@@ -88,14 +88,14 @@ exports.verifyOtp = async (req, res) => {
     const otpcount = await OtpVerifyCount.findOne({
         where : {
            email : email,
-        fromId : formId, 
+        formId : formId, 
         }
     })
     if(!otpcount){
 
         await OtpVerifyCount.create({
             email : email,
-            fromId : formId,
+            formId : formId,
             count : 1,
             createdAt : new Date()
         })
