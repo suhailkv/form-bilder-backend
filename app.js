@@ -66,7 +66,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, `${buildRelativePath}/index.html`));
+  res.sendFile(path.join(__dirname, `${config.buildRelativePath}/index.html`));
 });
 // Start server after DB connect
 const start = async () => {
