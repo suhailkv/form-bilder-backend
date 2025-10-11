@@ -9,7 +9,6 @@ const logger = require('./utils/logger');
 const compression = require("compression")
 
 // const authRoutes = require('./routes/authRoutes');
-app.use(compression());
 const formRoutes = require('./routes/formRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const publicRouter = require("./routes/publicRoutes")
@@ -20,8 +19,8 @@ const { swaggerUi, spec } = require('./swagger');
 const uploadRouter = require('./routes/upload.routes');
 const multerErrorHandler = require('./middlewares/multerErrorHandler');
 const app = express();
+app.use(compression());
 const cookieParser = require('cookie-parser')
-app.use(express.static(path.resolve(__dirname, "../client/build"))); //react app
 app.use(
   express.static(path.resolve(__dirname, config.buildRelativePath), {
     maxAge: "1y", // cache for one year
