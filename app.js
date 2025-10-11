@@ -6,7 +6,7 @@ const { sequelize } = require('./models');
 const config = require('./config/config');
 const logger = require('./utils/logger');
 
-const authRoutes = require('./routes/authRoutes');
+// const authRoutes = require('./routes/authRoutes');
 const formRoutes = require('./routes/formRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const publicRouter = require("./routes/publicRoutes")
