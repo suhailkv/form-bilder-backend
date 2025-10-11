@@ -6,8 +6,10 @@ const rateLimit = require('express-rate-limit');
 const { sequelize } = require('./models');
 const config = require('./config/config');
 const logger = require('./utils/logger');
+const compression = require("compression")
 
 // const authRoutes = require('./routes/authRoutes');
+app.use(compression());
 const formRoutes = require('./routes/formRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
 const publicRouter = require("./routes/publicRoutes")
@@ -20,6 +22,13 @@ const multerErrorHandler = require('./middlewares/multerErrorHandler');
 const app = express();
 const cookieParser = require('cookie-parser')
 app.use(express.static(path.resolve(__dirname, "../client/build"))); //react app
+app.use(
+  express.static(path.resolve(__dirname, config.buildRelativePath), {
+    maxAge: "1y", // cache for one year
+    immutable: true,
+    index: false,
+  })
+);
 
 app.use(cors({credentials: true, origin: true}));
 app.use(express.json({ limit: '10mb' }));
@@ -58,7 +67,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../client/build/index.html"));
+  res.sendFile(path.join(__dirname, `${buildRelativePath}/index.html`));
 });
 // Start server after DB connect
 const start = async () => {
