@@ -46,7 +46,7 @@ app.use(limiter);
 // app.use('/api/auth', authRoutes);
 app.use('/api/forms', formRoutes);
 app.use('/api/submissions', submissionRoutes);
-app.use('/form',publicRouter)
+app.use('/forms',publicRouter)
 // Swagger
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(spec));
 
