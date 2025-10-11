@@ -19,6 +19,7 @@ const uploadRouter = require('./routes/upload.routes');
 const multerErrorHandler = require('./middlewares/multerErrorHandler');
 const app = express();
 const cookieParser = require('cookie-parser')
+app.use(express.static(path.resolve(__dirname, "../client/build"))); //react app
 
 app.use(cors({credentials: true, origin: true}));
 app.use(express.json({ limit: '10mb' }));
