@@ -7,13 +7,13 @@ const {encryptId,decryptId} = require("../utils/idCrypt");
 const { Op } = require("sequelize");
 const response = require("../utils/responseModel")
 // Mailer setup
-// const transporter = nodemailer.createTransport({
-//   service: "gmail", // or SMTP
-//   auth: {
-//     user: process.env.EMAIL_USER,
-//     pass: process.env.EMAIL_PASS
-//   }
-// });
+const transporter = nodemailer.createTransport({
+  service: "gmail", // or SMTP
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 // Step 0: Fetch Form
 exports.getForm = async (req, res) => {
@@ -51,13 +51,14 @@ exports.requestOtp = async (req, res) => {
         expiresAt ,
     createdAt : now});
 
-    // await transporter.sendMail({
-    //   from: process.env.EMAIL_USER,
-    //   to: email,
-    //   subject: "Your OTP Code",
-    //   text: `Your OTP code is: ${otp}`
-    // });
-
+    const resp = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text: `Your OTP code is: ${otp}`
+    });
+    console.log(resp)
+    if(resp.rejected.length)  return res.status(500).json(response(false,"pleas Try again"))
     res.json(response(true,"OTP sent to email" ));
   } catch (err) {
     res.status(500).json({ message: err.message });
