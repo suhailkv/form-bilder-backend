@@ -18,5 +18,6 @@ module.exports = {
   },
   uploadsDir: process.env.UPLOADS_DIR || 'uploads',
   tempUploadsDir: process.env.UPLOADS_DIR || 'temp_uploads',
+  buildRelativePath : process.env.BUILD_PATH
 
 };
